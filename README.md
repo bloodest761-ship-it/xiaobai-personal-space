@@ -2,7 +2,7 @@
 
 一个面向长期写作、项目记录、知识理解和成长复盘的个人内容空间。
 
-当前仓库处于阶段 0：基础工程。此阶段只完成 Next.js、TypeScript、Tailwind CSS、Lint、类型检查和构建基础，不包含数据库、登录、后台、编辑器或图片上传。
+当前仓库已完成阶段 1：公开端页面和视觉骨架。此阶段使用本地 mock 数据完成首页、内容空间、分类页、内容详情页、项目详情页和关于页，不包含数据库、登录、后台、编辑器或图片上传。
 
 ## 技术栈
 
@@ -10,6 +10,18 @@
 - TypeScript
 - Tailwind CSS
 - ESLint
+
+## 已实现公开路由
+
+- `/`：个人首页
+- `/space`：内容空间
+- `/space/reflection`：心得列表
+- `/space/essay`：随笔列表
+- `/space/project`：项目列表
+- `/space/understanding`：理解列表
+- `/entry/[slug]`：普通内容详情
+- `/project/[slug]`：项目详情
+- `/about`：关于页面
 
 ## 本地安装
 
@@ -46,4 +58,4 @@ npm run build
 
 复制 `.env.example` 为 `.env.local` 后填写本地配置。不要提交 `.env.local` 或任何真实密钥。
 
-阶段 0 不连接 Supabase，`.env.example` 仅保留后续阶段需要的变量名。
+阶段 1 不连接 Supabase，`.env.example` 仅保留后续阶段需要的变量名。

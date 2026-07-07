@@ -24,6 +24,9 @@ pnpm-debug.log*
 # typescript
 *.tsbuildinfo
 
+# local verification artifacts
+.codex-screenshots/
+
 # system files
 .DS_Store
 Thumbs.db

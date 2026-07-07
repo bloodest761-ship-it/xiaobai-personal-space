@@ -1,17 +1,19 @@
 @import "tailwindcss";
 
 @theme {
-  --color-page: #f7f5f0;
+  --color-page: #f7f6f2;
   --color-surface: #ffffff;
+  --color-subtle: #efede7;
   --color-primary: #1f2933;
   --color-secondary: #4f5b66;
   --color-muted: #6b7280;
-  --color-accent: #0f766e;
+  --color-accent: #2f6f68;
+  --color-accent-soft: #dfe9e6;
   --color-border: #ded8cf;
 
   --font-sans: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", ui-sans-serif, system-ui, sans-serif;
 
-  --spacing-page: 72rem;
+  --spacing-page: 76rem;
   --spacing-content: 48rem;
   --spacing-reading: 42rem;
 }
@@ -48,4 +50,13 @@ body {
 :focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 3px;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+img {
+  max-width: 100%;
 }

@@ -2,7 +2,10 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "小白的个人内容空间",
+  title: {
+    default: "小白的个人内容空间",
+    template: "%s | 小白的个人内容空间",
+  },
   description: "记录实践、思考、理解和成长。",
 };
 
