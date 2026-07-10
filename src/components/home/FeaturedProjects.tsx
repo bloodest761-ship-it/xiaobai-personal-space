@@ -1,11 +1,12 @@
 import { ProjectCard } from "@/components/project/ProjectCard";
 import { Button } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Container";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeading } from "@/components/ui/SectionHeading";
-import { getFeaturedProjects } from "@/lib/content";
+import { getFeaturedProjects } from "@/lib/public-content";
 
-export function FeaturedProjects() {
-  const featuredProjects = getFeaturedProjects();
+export async function FeaturedProjects() {
+  const featuredProjects = await getFeaturedProjects();
 
   return (
     <section className="bg-page py-16">
@@ -16,11 +17,15 @@ export function FeaturedProjects() {
           description="项目内容强调目标、过程、问题、调整和当前成果。"
           action={<Button href="/space/project" variant="secondary">查看项目</Button>}
         />
-        <div className="grid gap-5 lg:grid-cols-2">
-          {featuredProjects.map((project) => (
-            <ProjectCard key={project.slug} project={project} />
-          ))}
-        </div>
+        {featuredProjects.length > 0 ? (
+          <div className="grid gap-5 lg:grid-cols-2">
+            {featuredProjects.map((project) => (
+              <ProjectCard key={project.slug} project={project} />
+            ))}
+          </div>
+        ) : (
+          <EmptyState title="暂无精选项目" description="发布项目并设置精选后，项目会显示在这里。" />
+        )}
       </Container>
     </section>
   );

@@ -3,7 +3,7 @@ import Link from "next/link";
 import type { Entry } from "@/types/content";
 import { DateDisplay } from "@/components/ui/DateDisplay";
 import { Tag } from "@/components/ui/Tag";
-import { getCategory } from "@/lib/content";
+import { getCategory } from "@/lib/public-content";
 
 type EntryCardProps = {
   entry: Entry;

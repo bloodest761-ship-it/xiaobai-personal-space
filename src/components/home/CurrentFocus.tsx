@@ -1,6 +1,7 @@
-import { focusItems } from "@/data/mock-content";
 import { Container } from "@/components/ui/Container";
 import { SectionHeading } from "@/components/ui/SectionHeading";
+
+const focusItems = ["机器人", "嵌入式控制", "计算机视觉", "软件工程", "学习复盘"];
 
 export function CurrentFocus() {
   return (

@@ -6,14 +6,15 @@ import { ProjectOverview } from "@/components/project/ProjectOverview";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { Container } from "@/components/ui/Container";
-import { projects } from "@/data/mock-content";
-import { getProjectBySlug } from "@/lib/content";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { getProjectBySlug } from "@/lib/public-content";
 
 type PageProps = {
   params: Promise<{ slug: string }>;
 };
 
-export const dynamicParams = false;
+export const dynamicParams = true;
+export const dynamic = "force-dynamic";
 
 const sectionLabels = {
   background: "项目背景",
@@ -27,12 +28,12 @@ const sectionLabels = {
 } as const;
 
 export function generateStaticParams() {
-  return projects.map((project) => ({ slug: project.slug }));
+  return [];
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const project = getProjectBySlug(slug);
+  const project = await getProjectBySlug(slug);
 
   if (!project) {
     return {};
@@ -46,7 +47,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function ProjectPage({ params }: PageProps) {
   const { slug } = await params;
-  const project = getProjectBySlug(slug);
+  const project = await getProjectBySlug(slug);
 
   if (!project) {
     notFound();
@@ -86,9 +87,13 @@ export default async function ProjectPage({ params }: PageProps) {
               <section key={key} className="rounded-2xl border border-border bg-surface p-6">
                 <h2 className="text-2xl font-semibold text-primary">{label}</h2>
                 <div className="mt-4 space-y-4 text-base leading-8 text-secondary">
-                  {project.sections[key as keyof typeof sectionLabels].map((paragraph) => (
-                    <p key={paragraph}>{paragraph}</p>
-                  ))}
+                  {project.sections[key as keyof typeof sectionLabels].length > 0 ? (
+                    project.sections[key as keyof typeof sectionLabels].map((paragraph) => (
+                      <p key={paragraph}>{paragraph}</p>
+                    ))
+                  ) : (
+                    <p>暂无内容。</p>
+                  )}
                 </div>
               </section>
             ))}
@@ -103,7 +108,11 @@ export default async function ProjectPage({ params }: PageProps) {
           </aside>
         </Container>
         <Container className="pb-16">
-          <ImageGallery images={project.gallery} />
+          {project.gallery.length > 0 ? (
+            <ImageGallery images={project.gallery} />
+          ) : (
+            <EmptyState title="暂无项目图片" description="阶段 3 尚未实现图片上传，图片会在后续阶段补充。" />
+          )}
         </Container>
       </main>
       <SiteFooter />

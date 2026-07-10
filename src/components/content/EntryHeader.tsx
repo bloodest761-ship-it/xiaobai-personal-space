@@ -2,7 +2,7 @@ import Image from "next/image";
 import type { Entry } from "@/types/content";
 import { DateDisplay } from "@/components/ui/DateDisplay";
 import { Tag } from "@/components/ui/Tag";
-import { getCategory } from "@/lib/content";
+import { getCategory } from "@/lib/public-content";
 
 type EntryHeaderProps = {
   entry: Entry;

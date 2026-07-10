@@ -5,6 +5,7 @@ const slugRegex = /^[\p{L}\p{N}_-]+(?:-[\p{L}\p{N}_-]+)*$/u;
 
 export const entryTypeSchema = z.enum(entryTypes);
 export const entryStatusSchema = z.enum(entryStatuses);
+export const entryIdSchema = z.string().uuid("Entry ID must be a UUID.");
 
 export const slugSchema = z
   .string()
@@ -53,7 +54,7 @@ export const entryCreateInputSchema = z.object({
 export const entryUpdateInputSchema = entryCreateInputSchema
   .partial()
   .extend({
-    id: z.string().uuid("Entry ID 必须是 UUID。"),
+    id: entryIdSchema,
     published_at: z.string().datetime().nullable().optional(),
     deleted_at: z.string().datetime().nullable().optional(),
   });
@@ -61,3 +62,22 @@ export const entryUpdateInputSchema = entryCreateInputSchema
 export type LoginInput = z.infer<typeof loginInputSchema>;
 export type EntryCreateInput = z.infer<typeof entryCreateInputSchema>;
 export type EntryUpdateInput = z.infer<typeof entryUpdateInputSchema>;
+export const entryFormInputSchema = z.object({
+  id: entryIdSchema,
+  title: z.string().trim().min(1, "标题不能为空。").max(120, "标题不能超过 120 个字符。"),
+  slug: slugSchema,
+  type: entryTypeSchema,
+  summary: z.string().trim().max(300, "摘要不能超过 300 个字符。").nullable(),
+  content_text: z.string().trim().max(40000, "正文不能超过 40000 个字符。").nullable(),
+  tags: z.array(tagSchema).max(16, "标签最多 16 个。"),
+  featured: z.boolean(),
+  featured_order: z.number().int().nullable(),
+  metadata: projectMetadataSchema,
+});
+
+export const newEntryInputSchema = z.object({
+  type: entryTypeSchema,
+});
+
+export type EntryFormInput = z.infer<typeof entryFormInputSchema>;
+export type NewEntryInput = z.infer<typeof newEntryInputSchema>;

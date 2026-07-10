@@ -7,8 +7,13 @@ import { SiteHeader } from "@/components/site/SiteHeader";
 import { Container } from "@/components/ui/Container";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeading } from "@/components/ui/SectionHeading";
-import { categories } from "@/data/mock-content";
-import { getCategory, getEntriesByType, getProjects, isContentType } from "@/lib/content";
+import {
+  categories,
+  getCategory,
+  getEntriesByType,
+  getProjects,
+  isContentType,
+} from "@/lib/public-content";
 import type { ContentType } from "@/types/content";
 
 type PageProps = {
@@ -16,6 +21,7 @@ type PageProps = {
 };
 
 export const dynamicParams = false;
+export const dynamic = "force-dynamic";
 
 export function generateStaticParams() {
   return categories.map((category) => ({ type: category.type }));
@@ -50,8 +56,8 @@ export default async function CategoryPage({ params }: PageProps) {
   }
 
   const contentType = type as ContentType;
-  const entries = getEntriesByType(contentType);
-  const projects = getProjects();
+  const entries = await getEntriesByType(contentType);
+  const projects = await getProjects();
 
   return (
     <>

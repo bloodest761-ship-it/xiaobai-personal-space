@@ -7,6 +7,8 @@ import { ProfileIntro } from "@/components/home/ProfileIntro";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
 
+export const dynamic = "force-dynamic";
+
 export default function Home() {
   return (
     <>

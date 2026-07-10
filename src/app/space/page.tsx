@@ -4,7 +4,9 @@ import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { Container } from "@/components/ui/Container";
 import { SectionHeading } from "@/components/ui/SectionHeading";
-import { categories } from "@/data/mock-content";
+import { categories } from "@/lib/public-content";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "内容空间",
