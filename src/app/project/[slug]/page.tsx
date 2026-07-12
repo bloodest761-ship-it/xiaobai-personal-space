@@ -7,6 +7,7 @@ import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { Container } from "@/components/ui/Container";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { RichContent } from "@/components/editor/RichContent";
 import { getProjectBySlug } from "@/lib/public-content";
 
 type PageProps = {
@@ -82,22 +83,22 @@ export default async function ProjectPage({ params }: PageProps) {
           </Container>
         </section>
         <Container className="grid gap-10 py-12 lg:grid-cols-[1fr_22rem]">
-          <article className="space-y-10">
-            {Object.entries(sectionLabels).map(([key, label]) => (
-              <section key={key} className="rounded-2xl border border-border bg-surface p-6">
-                <h2 className="text-2xl font-semibold text-primary">{label}</h2>
-                <div className="mt-4 space-y-4 text-base leading-8 text-secondary">
-                  {project.sections[key as keyof typeof sectionLabels].length > 0 ? (
-                    project.sections[key as keyof typeof sectionLabels].map((paragraph) => (
-                      <p key={paragraph}>{paragraph}</p>
-                    ))
-                  ) : (
-                    <p>暂无内容。</p>
-                  )}
-                </div>
-              </section>
-            ))}
-          </article>
+          {project.contentJson ? (
+            <RichContent content={project.contentJson} />
+          ) : (
+            <article className="space-y-10">
+              {Object.entries(sectionLabels).map(([key, label]) => (
+                <section key={key} className="rounded-2xl border border-border bg-surface p-6">
+                  <h2 className="text-2xl font-semibold text-primary">{label}</h2>
+                  <div className="mt-4 space-y-4 text-base leading-8 text-secondary">
+                    {project.sections[key as keyof typeof sectionLabels].length > 0 ? (
+                      project.sections[key as keyof typeof sectionLabels].map((paragraph) => <p key={paragraph}>{paragraph}</p>)
+                    ) : <p>暂无内容。</p>}
+                  </div>
+                </section>
+              ))}
+            </article>
+          )}
           <aside className="lg:sticky lg:top-24 lg:self-start">
             <div className="rounded-2xl border border-border bg-surface p-6">
               <h2 className="text-lg font-semibold text-primary">图片展示区域</h2>

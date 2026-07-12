@@ -6,6 +6,7 @@ import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { Container } from "@/components/ui/Container";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { RichContent } from "@/components/editor/RichContent";
 import { getEntryBySlug, getEntryNavigation } from "@/lib/public-content";
 
 type PageProps = {
@@ -49,7 +50,9 @@ export default async function EntryPage({ params }: PageProps) {
       <main className="bg-page">
         <EntryHeader entry={entry} />
         <Container size="reading" className="py-12 sm:py-16">
-          {entry.body.length > 0 ? (
+          {entry.contentJson ? (
+            <RichContent content={entry.contentJson} />
+          ) : entry.body.length > 0 ? (
             <article className="space-y-6 text-lg leading-9 text-primary">
               {entry.body.map((paragraph) => (
                 <p key={paragraph}>{paragraph}</p>

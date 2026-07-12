@@ -30,6 +30,7 @@ export type Entry = {
   featured: boolean;
   cover?: CoverImage;
   body: string[];
+  contentJson?: import("@/types/database").Json;
 };
 
 export type Project = {
@@ -45,6 +46,7 @@ export type Project = {
   featured: boolean;
   cover: CoverImage;
   gallery: CoverImage[];
+  contentJson?: import("@/types/database").Json;
   sections: {
     background: string[];
     goals: string[];

@@ -173,6 +173,7 @@ function rowToEntry(row: EntryRow): Entry {
     featured: row.featured,
     cover: row.cover_path ? { src: row.cover_path, alt: row.title } : undefined,
     body: textToParagraphs(row.content_text),
+    contentJson: row.content_json,
   };
 }
 
@@ -196,6 +197,7 @@ function rowToProject(row: EntryRow): Project {
       alt: row.title,
     },
     gallery: [],
+    contentJson: row.content_json,
     sections: {
       background: paragraphs,
       goals: [],

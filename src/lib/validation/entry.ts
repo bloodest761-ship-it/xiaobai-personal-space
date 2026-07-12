@@ -75,9 +75,15 @@ export const entryFormInputSchema = z.object({
   metadata: projectMetadataSchema,
 });
 
+export const editorEntryInputSchema = entryFormInputSchema.extend({
+  content_json: z.unknown(),
+  expected_updated_at: z.string().trim().min(1).refine((value) => !Number.isNaN(Date.parse(value)), "保存版本无效。"),
+});
+
 export const newEntryInputSchema = z.object({
   type: entryTypeSchema,
 });
 
 export type EntryFormInput = z.infer<typeof entryFormInputSchema>;
+export type EditorEntryInput = z.infer<typeof editorEntryInputSchema>;
 export type NewEntryInput = z.infer<typeof newEntryInputSchema>;

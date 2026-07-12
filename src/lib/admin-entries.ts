@@ -1,7 +1,7 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentAdminState } from "@/lib/auth/admin";
 import type { Database, Json } from "@/types/database";
-import type { EntryFormInput, NewEntryInput } from "@/lib/validation/entry";
+import type { EditorEntryInput, EntryFormInput, NewEntryInput } from "@/lib/validation/entry";
 
 export type EntryRow = Database["public"]["Tables"]["entries"]["Row"];
 export type EntryType = EntryRow["type"];
@@ -160,6 +160,40 @@ export async function updateEntry(input: EntryFormInput): Promise<DataResult<Ent
 
   if (error || !data) {
     return { data: null, error: mapDatabaseError(error) };
+  }
+
+  return { data, error: null };
+}
+
+export async function updateEditorEntry(input: EditorEntryInput): Promise<DataResult<EntryRow>> {
+  const admin = await requireAdmin();
+
+  if (admin.error || !admin.data) {
+    return { data: null, error: admin.error ?? "只有管理员可以更新内容。" };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("entries")
+    .update({
+      title: input.title,
+      slug: input.slug,
+      type: input.type,
+      summary: input.summary || null,
+      content_json: input.content_json as Json,
+      content_text: input.content_text ?? "",
+      tags: input.tags,
+      featured: input.featured,
+      featured_order: input.featured_order,
+      metadata: input.type === "project" ? input.metadata : {},
+    })
+    .eq("id", input.id)
+    .eq("updated_at", input.expected_updated_at)
+    .select(entryColumns)
+    .maybeSingle();
+
+  if (error || !data) {
+    return { data: null, error: error ? mapDatabaseError(error) : "内容已在其他保存请求中更新，请保留本地副本后刷新页面。" };
   }
 
   return { data, error: null };
