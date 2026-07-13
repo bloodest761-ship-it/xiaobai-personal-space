@@ -1,4 +1,5 @@
-import type { User } from "@supabase/supabase-js";
+import { cache } from "react";
+import { headers } from "next/headers";
 import { hasPublicSupabaseEnv } from "@/lib/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -15,14 +16,27 @@ export type AdminState =
     }
   | {
       status: "not-admin";
-      user: User;
+      user: AdminUser;
       email: string | null;
     }
   | {
       status: "admin";
-      user: User;
+      user: AdminUser;
       email: string | null;
-    };
+};
+
+type AdminUser = { id: string; email?: string | null };
+
+const getAdminRecord = cache(async (userId: string) => {
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase
+    .from("app_admins")
+    .select("user_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  return data;
+});
 
 export async function getCurrentAdminState(): Promise<AdminState> {
   if (!hasPublicSupabaseEnv()) {
@@ -33,10 +47,13 @@ export async function getCurrentAdminState(): Promise<AdminState> {
     };
   }
 
+  const requestHeaders = await headers();
+  const proxiedUserId = requestHeaders.get("x-xiaobai-auth-user-id");
+  const proxiedEmail = requestHeaders.get("x-xiaobai-auth-user-email");
   const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = proxiedUserId
+    ? { id: proxiedUserId, email: proxiedEmail }
+    : (await supabase.auth.getUser()).data.user;
 
   if (!user) {
     return {
@@ -46,11 +63,7 @@ export async function getCurrentAdminState(): Promise<AdminState> {
     };
   }
 
-  const { data } = await supabase
-    .from("app_admins")
-    .select("user_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const data = await getAdminRecord(user.id);
 
   if (!data) {
     return {

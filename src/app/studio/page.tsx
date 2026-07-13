@@ -1,12 +1,10 @@
 /*
 import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { logoutAction } from "@/actions/auth";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { Container } from "@/components/ui/Container";
-import { getCurrentAdminState } from "@/lib/auth/admin";
 import { getAdminEntries } from "@/lib/entries";
 
 export const dynamic = "force-dynamic";
@@ -21,21 +19,7 @@ export const metadata: Metadata = {
 };
 
 export default async function StudioPage() {
-  const adminState = await getCurrentAdminState();
-
-  if (adminState.status === "missing-env") {
-    redirect("/login?reason=setup");
-  }
-
-  if (adminState.status === "unauthenticated") {
-    redirect("/login");
-  }
-
-  if (adminState.status === "not-admin") {
-    redirect("/login?reason=not-admin");
-  }
-
-  const entriesResult = await getAdminEntries();
+  const entriesResult = await getAdminEntries({ limit: 50 });
   const databaseStatus = entriesResult.error ? "数据库查询需要检查配置" : "数据库连接正常";
 
   return (
@@ -88,14 +72,12 @@ export default async function StudioPage() {
 
 import Link from "next/link";
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { StudioNav } from "@/components/studio/StudioNav";
 import { Button } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Container";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { getCurrentAdminState } from "@/lib/auth/admin";
 import { getAdminEntries } from "@/lib/admin-entries";
 import { formatDate } from "@/lib/dates";
 import { entryStatusLabels, entryTypeLabels } from "@/lib/entry-labels";
@@ -112,21 +94,7 @@ export const metadata: Metadata = {
 };
 
 export default async function StudioPage() {
-  const adminState = await getCurrentAdminState();
-
-  if (adminState.status === "missing-env") {
-    redirect("/login?reason=setup");
-  }
-
-  if (adminState.status === "unauthenticated") {
-    redirect("/login");
-  }
-
-  if (adminState.status === "not-admin") {
-    redirect("/login?reason=not-admin");
-  }
-
-  const entriesResult = await getAdminEntries();
+  const entriesResult = await getAdminEntries({ limit: 50 });
   const entries = entriesResult.data ?? [];
   const activeEntries = entries.filter((entry) => !entry.deleted_at);
   const drafts = activeEntries.filter((entry) => entry.status === "draft");

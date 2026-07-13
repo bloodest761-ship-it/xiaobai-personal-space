@@ -1,11 +1,9 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { createEntryAction } from "@/actions/entries";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { StudioNav } from "@/components/studio/StudioNav";
 import { Container } from "@/components/ui/Container";
-import { getCurrentAdminState } from "@/lib/auth/admin";
 import { entryTypeLabels } from "@/lib/entry-labels";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +28,6 @@ const descriptions = {
 } as const;
 
 export default async function NewEntryPage({ searchParams }: PageProps) {
-  await requireAdminPage();
   const { error } = await searchParams;
 
   return (
@@ -77,20 +74,4 @@ export default async function NewEntryPage({ searchParams }: PageProps) {
       <SiteFooter />
     </>
   );
-}
-
-async function requireAdminPage() {
-  const state = await getCurrentAdminState();
-
-  if (state.status === "missing-env") {
-    redirect("/login?reason=setup");
-  }
-
-  if (state.status === "unauthenticated") {
-    redirect("/login");
-  }
-
-  if (state.status === "not-admin") {
-    redirect("/login?reason=not-admin");
-  }
 }

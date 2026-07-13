@@ -1,6 +1,5 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { restoreEntryAction } from "@/actions/entries";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
@@ -8,7 +7,6 @@ import { StudioNav } from "@/components/studio/StudioNav";
 import { Container } from "@/components/ui/Container";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { getAdminEntries } from "@/lib/admin-entries";
-import { getCurrentAdminState } from "@/lib/auth/admin";
 import { formatDate } from "@/lib/dates";
 import { entryStatusLabels, entryTypeLabels } from "@/lib/entry-labels";
 
@@ -27,9 +25,8 @@ type PageProps = {
 };
 
 export default async function TrashPage({ searchParams }: PageProps) {
-  await requireAdminPage();
   const params = await searchParams;
-  const entriesResult = await getAdminEntries({ deleted: "only" });
+  const entriesResult = await getAdminEntries({ deleted: "only", limit: 50 });
   const entries = entriesResult.data ?? [];
 
   return (
@@ -96,20 +93,4 @@ function Message({ error, success }: { error?: string | null; success?: string |
       {error ?? success}
     </p>
   );
-}
-
-async function requireAdminPage() {
-  const state = await getCurrentAdminState();
-
-  if (state.status === "missing-env") {
-    redirect("/login?reason=setup");
-  }
-
-  if (state.status === "unauthenticated") {
-    redirect("/login");
-  }
-
-  if (state.status === "not-admin") {
-    redirect("/login?reason=not-admin");
-  }
 }

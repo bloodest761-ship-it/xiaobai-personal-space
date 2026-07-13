@@ -1,14 +1,14 @@
 import Link from "next/link";
 import type { ContentCategory } from "@/types/content";
 import { DateDisplay } from "@/components/ui/DateDisplay";
-import { getCategoryStats } from "@/lib/public-content";
+import type { CategoryStats } from "@/lib/public-content";
 
 type CategoryCardProps = {
   category: ContentCategory;
+  stats: CategoryStats;
 };
 
-export async function CategoryCard({ category }: CategoryCardProps) {
-  const stats = await getCategoryStats(category.type);
+export function CategoryCard({ category, stats }: CategoryCardProps) {
 
   return (
     <Link

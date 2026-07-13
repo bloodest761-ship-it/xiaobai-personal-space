@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { getEntryById, publishEntry, updateEditorEntry, type EntryRow } from "@/lib/admin-entries";
 import { editorEntryInputSchema } from "@/lib/validation/entry";
 import type { Json } from "@/types/database";
@@ -73,6 +73,11 @@ export async function publishEditorEntryAction(payload: unknown): Promise<Editor
 }
 
 function revalidateEntry(entry: EntryRow, previousSlug?: string) {
+  revalidateTag("public-content", "max");
+  revalidateTag("home", "max");
+  revalidateTag(`list:${entry.type}`, "max");
+  revalidateTag(`entry:${entry.slug}`, "max");
+  if (previousSlug && previousSlug !== entry.slug) revalidateTag(`entry:${previousSlug}`, "max");
   revalidatePath("/studio");
   revalidatePath("/studio/entries");
   revalidatePath("/studio/trash");

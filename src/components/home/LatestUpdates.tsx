@@ -3,10 +3,9 @@ import { DateDisplay } from "@/components/ui/DateDisplay";
 import { Container } from "@/components/ui/Container";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeading } from "@/components/ui/SectionHeading";
-import { getContentTitle, getLatestUpdates } from "@/lib/public-content";
+import type { Entry, Project } from "@/types/content";
 
-export async function LatestUpdates() {
-  const updates = (await getLatestUpdates()).slice(0, 5);
+export function LatestUpdates({ updates }: { updates: Array<Entry | Project> }) {
 
   return (
     <section className="bg-surface py-16">
@@ -24,7 +23,7 @@ export async function LatestUpdates() {
                 href={item.type === "project" ? `/project/${item.slug}` : `/entry/${item.slug}`}
                 className="grid gap-2 px-5 py-5 transition hover:bg-accent-soft sm:grid-cols-[1fr_auto] sm:items-center"
               >
-                <span className="font-medium text-primary">{getContentTitle(item)}</span>
+                <span className="font-medium text-primary">{item.title}</span>
                 <DateDisplay updatedAt={item.updatedAt} />
               </Link>
             ))}

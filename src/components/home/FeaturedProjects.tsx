@@ -3,10 +3,9 @@ import { Button } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Container";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeading } from "@/components/ui/SectionHeading";
-import { getFeaturedProjects } from "@/lib/public-content";
+import type { Project } from "@/types/content";
 
-export async function FeaturedProjects() {
-  const featuredProjects = await getFeaturedProjects();
+export function FeaturedProjects({ projects }: { projects: Project[] }) {
 
   return (
     <section className="bg-page py-16">
@@ -17,9 +16,9 @@ export async function FeaturedProjects() {
           description="项目内容强调目标、过程、问题、调整和当前成果。"
           action={<Button href="/space/project" variant="secondary">查看项目</Button>}
         />
-        {featuredProjects.length > 0 ? (
+        {projects.length > 0 ? (
           <div className="grid gap-5 lg:grid-cols-2">
-            {featuredProjects.map((project) => (
+            {projects.map((project) => (
               <ProjectCard key={project.slug} project={project} />
             ))}
           </div>

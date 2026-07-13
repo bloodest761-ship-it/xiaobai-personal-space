@@ -1,38 +1,32 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { hasPublicSupabaseEnv } from "@/lib/env";
+import { unstable_cache } from "next/cache";
+import { createClient } from "@supabase/supabase-js";
+import { cache } from "react";
+import { hasPublicSupabaseEnv, getPublicEnv } from "@/lib/env";
 import type { EntryRow } from "@/lib/admin-entries";
 import type { ContentCategory, ContentType, Entry, Project, ProjectStatus } from "@/types/content";
-import type { Json } from "@/types/database";
+import type { Database, Json } from "@/types/database";
+
+export const PUBLIC_CONTENT_REVALIDATE_SECONDS = 300;
+const HOME_LIMIT = 20;
+const LIST_LIMIT = 20;
 
 export const categories: ContentCategory[] = [
-  {
-    type: "reflection",
-    name: "心得",
-    description: "记录学习和实践之后，认知发生变化的过程。",
-    href: "/space/reflection",
-  },
-  {
-    type: "essay",
-    name: "随笔",
-    description: "保存尚未完全成熟，但值得留下的个人思考。",
-    href: "/space/essay",
-  },
-  {
-    type: "project",
-    name: "项目",
-    description: "展示项目目标、过程、问题、调整和当前成果。",
-    href: "/space/project",
-  },
-  {
-    type: "understanding",
-    name: "理解",
-    description: "用自己的语言重新解释学过的知识。",
-    href: "/space/understanding",
-  },
+  { type: "reflection", name: "心得", description: "记录学习和实践之后，认知发生变化的过程。", href: "/space/reflection" },
+  { type: "essay", name: "随笔", description: "保存尚未完全成熟，但值得留下的个人思考。", href: "/space/essay" },
+  { type: "project", name: "项目", description: "展示项目目标、过程、问题、调整和当前成果。", href: "/space/project" },
+  { type: "understanding", name: "理解", description: "用自己的语言重新解释学过的知识。", href: "/space/understanding" },
 ];
 
-const entryColumns =
-  "id,title,slug,type,status,summary,content_json,content_text,cover_path,tags,featured,featured_order,metadata,created_by,created_at,updated_at,published_at,deleted_at";
+const listColumns = "title,slug,type,summary,cover_path,tags,created_at,updated_at,published_at,featured,featured_order";
+const detailColumns = `${listColumns},content_json,content_text,metadata`;
+
+export type HomeContent = {
+  featuredEntries: Entry[];
+  featuredProjects: Project[];
+  latestUpdates: Array<Entry | Project>;
+};
+
+export type CategoryStats = { count: number; latestTitle: string; updatedAt?: string };
 
 export function getCategory(type: ContentType) {
   return categories.find((category) => category.type === type);
@@ -42,126 +36,162 @@ export function isContentType(value: string): value is ContentType {
   return categories.some((category) => category.type === value);
 }
 
-export async function getEntriesByType(type: ContentType) {
-  const rows = await getPublishedRows();
-  return rows.filter((row) => row.type === type && row.type !== "project").map(rowToEntry);
+export async function getHomeContent(): Promise<HomeContent> {
+  return getCachedHomeContent();
 }
 
-export async function getProjects() {
-  const rows = await getPublishedRows();
-  return rows.filter((row) => row.type === "project").map(rowToProject);
+export function getEntriesByType(type: "project", limit?: number): Promise<Project[]>;
+export function getEntriesByType(type: Exclude<ContentType, "project">, limit?: number): Promise<Entry[]>;
+export async function getEntriesByType(type: ContentType, limit = LIST_LIMIT): Promise<Entry[] | Project[]> {
+  const safeLimit = normalizeLimit(limit);
+  return getCachedEntriesByType(type, safeLimit)();
 }
 
-export async function getFeaturedEntries() {
-  const rows = await getPublishedRows();
-  return rows
-    .filter((row) => row.featured && row.type !== "project")
-    .sort(sortFeatured)
-    .map(rowToEntry)
-    .slice(0, 4);
-}
-
-export async function getFeaturedProjects() {
-  const rows = await getPublishedRows();
-  return rows
-    .filter((row) => row.featured && row.type === "project")
-    .sort(sortFeatured)
-    .map(rowToProject)
-    .slice(0, 4);
-}
-
-export async function getLatestUpdates() {
-  const rows = await getPublishedRows();
-  return rows
-    .sort((left, right) => new Date(right.updated_at).getTime() - new Date(left.updated_at).getTime())
-    .map((row) => (row.type === "project" ? rowToProject(row) : rowToEntry(row)));
+export async function getProjects(limit = LIST_LIMIT) {
+  return getEntriesByType("project", limit);
 }
 
 export async function getEntryBySlug(slug: string) {
-  const row = await getPublishedRowBySlug(slug);
-  return row && row.type !== "project" ? rowToEntry(row) : null;
+  const row = await getPublicEntryRow(slug);
+  return row && row.type !== "project" ? rowToEntry(row, true) : null;
 }
 
 export async function getProjectBySlug(slug: string) {
-  const row = await getPublishedRowBySlug(slug);
-  return row?.type === "project" ? rowToProject(row) : null;
+  const row = await getPublicEntryRow(slug);
+  return row?.type === "project" ? rowToProject(row, true) : null;
 }
+
+const getPublicEntryRow = cache(async (slug: string) => getCachedEntryBySlug(slug)());
 
 export async function getEntryNavigation(entry: Entry) {
-  const entries = (await getPublishedRows())
-    .filter((row) => row.type !== "project")
-    .sort((left, right) => {
-      return new Date(right.published_at ?? 0).getTime() - new Date(left.published_at ?? 0).getTime();
-    })
-    .map(rowToEntry);
-  const currentIndex = entries.findIndex((item) => item.slug === entry.slug);
-
-  return {
-    previous: entries[currentIndex + 1],
-    next: entries[currentIndex - 1],
-  };
+  return getCachedEntryNavigation(entry.slug, entry.publishedAt)();
 }
 
-export async function getCategoryStats(type: ContentType) {
-  const rows = await getPublishedRows();
-  const items = rows.filter((row) => row.type === type);
-  const latest = [...items].sort((left, right) => {
-    return new Date(right.updated_at).getTime() - new Date(left.updated_at).getTime();
-  })[0];
-
-  return {
-    count: items.length,
-    latestTitle: latest ? latest.title : "暂无内容",
-    updatedAt: latest?.updated_at,
-  };
+export async function getCategoryStats(type: ContentType): Promise<CategoryStats> {
+  return getCachedCategoryStats(type)();
 }
 
-export function getContentTitle(content: Entry | Project) {
-  return content.type === "project" ? content.name : content.title;
-}
+const getCachedHomeContent = unstable_cache(
+  async (): Promise<HomeContent> => {
+    const supabase = createPublicClient();
+    if (!supabase) return { featuredEntries: [], featuredProjects: [], latestUpdates: [] };
 
-async function getPublishedRows() {
-  if (!hasPublicSupabaseEnv()) {
-    return [];
-  }
-
-  try {
-    const supabase = await createSupabaseServerClient();
     const { data } = await supabase
       .from("entries")
-      .select(entryColumns)
+      .select(listColumns)
       .eq("status", "published")
       .is("deleted_at", null)
-      .order("published_at", { ascending: false, nullsFirst: false });
+      .order("updated_at", { ascending: false })
+      .limit(HOME_LIMIT);
 
-    return data ?? [];
-  } catch {
-    return [];
-  }
+    const rows = (data ?? []) as EntryRow[];
+    const latestUpdates = rows.slice(0, 5).map(rowToListContent);
+    const featured = rows.filter((row) => row.featured).sort(sortFeatured);
+
+    return {
+      featuredEntries: featured.filter((row) => row.type !== "project").slice(0, 4).map((row) => rowToEntry(row, false)),
+      featuredProjects: featured.filter((row) => row.type === "project").slice(0, 4).map((row) => rowToProject(row, false)),
+      latestUpdates,
+    };
+  },
+  ["public-content", "home"],
+  { revalidate: PUBLIC_CONTENT_REVALIDATE_SECONDS, tags: ["public-content", "home"] },
+);
+
+function getCachedEntriesByType(type: ContentType, limit: number) {
+  return unstable_cache(
+    async () => {
+      const supabase = createPublicClient();
+      if (!supabase) return [] as Entry[] | Project[];
+      const { data } = await supabase
+        .from("entries")
+        .select(listColumns)
+        .eq("status", "published")
+        .eq("type", type)
+        .is("deleted_at", null)
+        .order("published_at", { ascending: false, nullsFirst: false })
+        .limit(limit);
+      const rows = (data ?? []) as EntryRow[];
+      return type === "project" ? rows.map((row) => rowToProject(row, false)) : rows.map((row) => rowToEntry(row, false));
+    },
+    ["public-content", "list", type, String(limit)],
+    { revalidate: PUBLIC_CONTENT_REVALIDATE_SECONDS, tags: ["public-content", `list:${type}`] },
+  );
 }
 
-async function getPublishedRowBySlug(slug: string) {
-  if (!hasPublicSupabaseEnv()) {
-    return null;
-  }
-
-  try {
-    const supabase = await createSupabaseServerClient();
-    const { data } = await supabase
-      .from("entries")
-      .select(entryColumns)
-      .eq("slug", slug)
-      .eq("status", "published")
-      .is("deleted_at", null)
-      .maybeSingle();
-
-    return data ?? null;
-  } catch {
-    return null;
-  }
+function getCachedEntryBySlug(slug: string) {
+  return unstable_cache(
+    async () => {
+      const supabase = createPublicClient();
+      if (!supabase) return null;
+      const { data } = await supabase
+        .from("entries")
+        .select(detailColumns)
+        .eq("slug", slug)
+        .eq("status", "published")
+        .is("deleted_at", null)
+        .maybeSingle();
+      return (data ?? null) as EntryRow | null;
+    },
+    ["public-content", "detail", slug],
+    { revalidate: PUBLIC_CONTENT_REVALIDATE_SECONDS, tags: ["public-content", `entry:${slug}`] },
+  );
 }
 
-function rowToEntry(row: EntryRow): Entry {
+function getCachedEntryNavigation(slug: string, publishedAt: string) {
+  return unstable_cache(
+    async () => {
+      const supabase = createPublicClient();
+      if (!supabase) return { previous: undefined, next: undefined };
+      const baseQuery = () => supabase.from("entries").select(listColumns).eq("status", "published").neq("type", "project").is("deleted_at", null);
+      const [older, newer] = await Promise.all([
+        baseQuery().lt("published_at", publishedAt).order("published_at", { ascending: false }).limit(1).maybeSingle(),
+        baseQuery().gt("published_at", publishedAt).order("published_at", { ascending: true }).limit(1).maybeSingle(),
+      ]);
+      return {
+        previous: older.data ? rowToEntry(older.data as EntryRow, false) : undefined,
+        next: newer.data ? rowToEntry(newer.data as EntryRow, false) : undefined,
+      };
+    },
+    ["public-content", "navigation", slug, publishedAt],
+    { revalidate: PUBLIC_CONTENT_REVALIDATE_SECONDS, tags: ["public-content", `entry:${slug}`] },
+  );
+}
+
+function getCachedCategoryStats(type: ContentType) {
+  return unstable_cache(
+    async (): Promise<CategoryStats> => {
+      const supabase = createPublicClient();
+      if (!supabase) return { count: 0, latestTitle: "暂无内容" };
+      const { data, count } = await supabase
+        .from("entries")
+        .select("title,updated_at", { count: "exact" })
+        .eq("status", "published")
+        .eq("type", type)
+        .is("deleted_at", null)
+        .order("updated_at", { ascending: false })
+        .limit(1);
+      const latest = data?.[0];
+      return { count: count ?? 0, latestTitle: latest?.title ?? "暂无内容", updatedAt: latest?.updated_at };
+    },
+    ["public-content", "category-stats", type],
+    { revalidate: PUBLIC_CONTENT_REVALIDATE_SECONDS, tags: ["public-content", `list:${type}`] },
+  );
+}
+
+function createPublicClient() {
+  if (!hasPublicSupabaseEnv()) return null;
+  const env = getPublicEnv();
+  return createClient<Database>(env.supabaseUrl, env.supabasePublishableKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
+
+function rowToListContent(row: EntryRow): Entry | Project {
+  return row.type === "project" ? rowToProject(row, false) : rowToEntry(row, false);
+}
+
+function rowToEntry(row: EntryRow, includeBody: boolean): Entry {
   return {
     slug: row.slug,
     type: row.type === "project" ? "reflection" : row.type,
@@ -172,15 +202,14 @@ function rowToEntry(row: EntryRow): Entry {
     tags: row.tags,
     featured: row.featured,
     cover: row.cover_path ? { src: row.cover_path, alt: row.title } : undefined,
-    body: textToParagraphs(row.content_text),
-    contentJson: row.content_json,
+    body: includeBody ? textToParagraphs(row.content_text) : [],
+    contentJson: includeBody ? row.content_json : undefined,
   };
 }
 
-function rowToProject(row: EntryRow): Project {
-  const metadata = normalizeMetadata(row.metadata);
-  const paragraphs = textToParagraphs(row.content_text);
-
+function rowToProject(row: EntryRow, includeBody: boolean): Project {
+  const metadata = includeBody ? normalizeMetadata(row.metadata) : { projectStatus: "idea" as ProjectStatus, startDate: null, techStack: [] };
+  const paragraphs = includeBody ? textToParagraphs(row.content_text) : [];
   return {
     slug: row.slug,
     type: "project",
@@ -192,30 +221,15 @@ function rowToProject(row: EntryRow): Project {
     updatedAt: row.updated_at,
     techStack: metadata.techStack,
     featured: row.featured,
-    cover: {
-      src: row.cover_path || "/images/cover-vision.svg",
-      alt: row.title,
-    },
+    cover: { src: row.cover_path || "/images/cover-vision.svg", alt: row.title },
     gallery: [],
-    contentJson: row.content_json,
-    sections: {
-      background: paragraphs,
-      goals: [],
-      process: [],
-      problems: [],
-      adjustments: [],
-      result: [],
-      learnings: [],
-      nextSteps: [],
-    },
+    contentJson: includeBody ? row.content_json : undefined,
+    sections: { background: paragraphs, goals: [], process: [], problems: [], adjustments: [], result: [], learnings: [], nextSteps: [] },
   };
 }
 
 function textToParagraphs(text: string | null) {
-  return (text ?? "")
-    .split(/\n{2,}/)
-    .map((paragraph) => paragraph.trim())
-    .filter(Boolean);
+  return (text ?? "").split(/\n{2,}/).map((paragraph) => paragraph.trim()).filter(Boolean);
 }
 
 function normalizeMetadata(value: Json) {
@@ -223,24 +237,12 @@ function normalizeMetadata(value: Json) {
   return {
     projectStatus: normalizeProjectStatus(record.projectStatus),
     startDate: asString(record.startDate),
-    techStack: Array.isArray(record.techStack)
-      ? record.techStack.filter((item): item is string => typeof item === "string")
-      : [],
+    techStack: Array.isArray(record.techStack) ? record.techStack.filter((item): item is string => typeof item === "string") : [],
   };
 }
 
 function normalizeProjectStatus(value: Json | undefined): ProjectStatus {
-  if (
-    value === "idea" ||
-    value === "in_progress" ||
-    value === "iterating" ||
-    value === "completed" ||
-    value === "paused"
-  ) {
-    return value;
-  }
-
-  return "idea";
+  return value === "idea" || value === "in_progress" || value === "iterating" || value === "completed" || value === "paused" ? value : "idea";
 }
 
 function isRecord(value: Json): value is Record<string, Json | undefined> {
@@ -254,10 +256,11 @@ function asString(value: Json | undefined) {
 function sortFeatured(left: EntryRow, right: EntryRow) {
   const leftOrder = left.featured_order ?? Number.MAX_SAFE_INTEGER;
   const rightOrder = right.featured_order ?? Number.MAX_SAFE_INTEGER;
+  return leftOrder === rightOrder
+    ? new Date(right.published_at ?? 0).getTime() - new Date(left.published_at ?? 0).getTime()
+    : leftOrder - rightOrder;
+}
 
-  if (leftOrder !== rightOrder) {
-    return leftOrder - rightOrder;
-  }
-
-  return new Date(right.published_at ?? 0).getTime() - new Date(left.published_at ?? 0).getTime();
+function normalizeLimit(limit: number) {
+  return Math.max(1, Math.min(Math.floor(limit), LIST_LIMIT));
 }

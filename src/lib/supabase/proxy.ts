@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { getPublicEnv, hasPublicSupabaseEnv } from "@/lib/env";
 import type { Database } from "@/types/database";
 
@@ -17,7 +17,12 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.next({ request });
   }
 
-  let response = NextResponse.next({ request });
+  const requestHeaders = new Headers(request.headers);
+  // These headers are an internal hand-off from proxy to Server Components.
+  // Remove client-supplied values before adding the verified identity below.
+  requestHeaders.delete("x-xiaobai-auth-user-id");
+  requestHeaders.delete("x-xiaobai-auth-user-email");
+  const pendingCookies: Array<{ name: string; value: string; options: CookieOptions }> = [];
   const env = getPublicEnv();
 
   const supabase = createServerClient<Database>(
@@ -28,11 +33,10 @@ export async function updateSession(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          response = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) => {
-            response.cookies.set(name, value, options);
+        setAll(cookiesToApply) {
+          cookiesToApply.forEach(({ name, value, options }) => {
+            request.cookies.set(name, value);
+            pendingCookies.push({ name, value, options });
           });
         },
       },
@@ -43,25 +47,24 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  if (user) {
+    requestHeaders.set("x-xiaobai-auth-user-id", user.id);
+    if (user.email) {
+      requestHeaders.set("x-xiaobai-auth-user-email", user.email);
+    }
+  }
+
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  pendingCookies.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+
   if (pathname.startsWith("/studio")) {
     if (!user) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
       url.searchParams.set("next", pathname);
-      return NextResponse.redirect(url);
-    }
-
-    const { data } = await supabase
-      .from("app_admins")
-      .select("user_id")
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (!data) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/login";
-      url.searchParams.set("reason", "not-admin");
-      return NextResponse.redirect(url);
+      const redirectResponse = NextResponse.redirect(url);
+      pendingCookies.forEach(({ name, value, options }) => redirectResponse.cookies.set(name, value, options));
+      return redirectResponse;
     }
   }
 

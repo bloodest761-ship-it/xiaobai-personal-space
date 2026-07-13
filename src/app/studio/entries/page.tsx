@@ -1,6 +1,5 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import {
   archiveEntryAction,
   publishEntryAction,
@@ -14,7 +13,6 @@ import { Button } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Container";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { getAdminEntries, type EntryStatus, type EntryType } from "@/lib/admin-entries";
-import { getCurrentAdminState } from "@/lib/auth/admin";
 import { formatDate } from "@/lib/dates";
 import { entryStatusLabels, entryTypeLabels } from "@/lib/entry-labels";
 
@@ -39,7 +37,6 @@ type PageProps = {
 };
 
 export default async function EntriesPage({ searchParams }: PageProps) {
-  await requireAdminPage();
   const params = await searchParams;
   const selectedType = normalizeType(params.type);
   const selectedStatus = normalizeStatus(params.status);
@@ -48,6 +45,7 @@ export default async function EntriesPage({ searchParams }: PageProps) {
     type: selectedType,
     status: selectedStatus,
     deleted: "exclude",
+    limit: 50,
   });
   const entries = entriesResult.data ?? [];
 
@@ -199,22 +197,6 @@ function Message({ error, success }: { error?: string | null; success?: string |
       {error ?? success}
     </p>
   );
-}
-
-async function requireAdminPage() {
-  const state = await getCurrentAdminState();
-
-  if (state.status === "missing-env") {
-    redirect("/login?reason=setup");
-  }
-
-  if (state.status === "unauthenticated") {
-    redirect("/login");
-  }
-
-  if (state.status === "not-admin") {
-    redirect("/login?reason=not-admin");
-  }
 }
 
 function normalizeType(value?: string): EntryType | "all" {

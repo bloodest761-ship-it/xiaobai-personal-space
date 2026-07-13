@@ -21,7 +21,7 @@ type PageProps = {
 };
 
 export const dynamicParams = false;
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 export function generateStaticParams() {
   return categories.map((category) => ({ type: category.type }));
@@ -56,8 +56,8 @@ export default async function CategoryPage({ params }: PageProps) {
   }
 
   const contentType = type as ContentType;
-  const entries = await getEntriesByType(contentType);
-  const projects = await getProjects();
+  const projects = contentType === "project" ? await getProjects() : [];
+  const entries = contentType === "project" ? [] : await getEntriesByType(contentType);
 
   return (
     <>

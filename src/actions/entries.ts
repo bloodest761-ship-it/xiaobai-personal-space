@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import {
   archiveEntry,
@@ -177,6 +177,13 @@ function nullableNumber(value: FormDataEntryValue | null) {
 }
 
 function revalidateEntry(entry: EntryRow, previousSlug?: string) {
+  revalidateTag("public-content", "max");
+  revalidateTag("home", "max");
+  revalidateTag(`list:${entry.type}`, "max");
+  revalidateTag(`entry:${entry.slug}`, "max");
+  if (previousSlug && previousSlug !== entry.slug) {
+    revalidateTag(`entry:${previousSlug}`, "max");
+  }
   revalidateStudio();
   revalidatePath("/");
   revalidatePath("/space");

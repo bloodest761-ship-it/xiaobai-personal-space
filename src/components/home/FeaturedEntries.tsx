@@ -3,10 +3,9 @@ import { Button } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Container";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeading } from "@/components/ui/SectionHeading";
-import { getFeaturedEntries } from "@/lib/public-content";
+import type { Entry } from "@/types/content";
 
-export async function FeaturedEntries() {
-  const featuredEntries = await getFeaturedEntries();
+export function FeaturedEntries({ entries }: { entries: Entry[] }) {
 
   return (
     <section className="bg-surface py-16">
@@ -17,9 +16,9 @@ export async function FeaturedEntries() {
           description="用示例内容验证心得、随笔和理解类文章的展示方式。"
           action={<Button href="/space" variant="secondary">全部内容</Button>}
         />
-        {featuredEntries.length > 0 ? (
+        {entries.length > 0 ? (
           <div className="grid gap-5 lg:grid-cols-2">
-            {featuredEntries.map((entry) => (
+            {entries.map((entry) => (
               <EntryCard key={entry.slug} entry={entry} />
             ))}
           </div>

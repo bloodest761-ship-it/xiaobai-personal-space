@@ -1,13 +1,12 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { EntryEditorForm } from "@/components/editor/EntryEditorForm";
 import { StudioNav } from "@/components/studio/StudioNav";
 import { Container } from "@/components/ui/Container";
 import { getEntryById } from "@/lib/admin-entries";
-import { getCurrentAdminState } from "@/lib/auth/admin";
 import { entryStatusLabels, entryTypeLabels } from "@/lib/entry-labels";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +19,6 @@ export const metadata: Metadata = {
 type PageProps = { params: Promise<{ id: string }> };
 
 export default async function EditEntryPage({ params }: PageProps) {
-  await requireAdminPage();
   const { id } = await params;
   const result = await getEntryById(id);
   if (result.error || !result.data) notFound();
@@ -46,11 +44,4 @@ export default async function EditEntryPage({ params }: PageProps) {
       <SiteFooter />
     </>
   );
-}
-
-async function requireAdminPage() {
-  const state = await getCurrentAdminState();
-  if (state.status === "missing-env") redirect("/login?reason=setup");
-  if (state.status === "unauthenticated") redirect("/login");
-  if (state.status === "not-admin") redirect("/login?reason=not-admin");
 }

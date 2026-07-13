@@ -6,10 +6,12 @@ import { LatestUpdates } from "@/components/home/LatestUpdates";
 import { ProfileIntro } from "@/components/home/ProfileIntro";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
+import { getHomeContent } from "@/lib/public-content";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
-export default function Home() {
+export default async function Home() {
+  const homeContent = await getHomeContent();
   return (
     <>
       <SiteHeader />
@@ -17,9 +19,9 @@ export default function Home() {
         <Hero />
         <ProfileIntro />
         <CurrentFocus />
-        <FeaturedEntries />
-        <FeaturedProjects />
-        <LatestUpdates />
+        <FeaturedEntries entries={homeContent.featuredEntries} />
+        <FeaturedProjects projects={homeContent.featuredProjects} />
+        <LatestUpdates updates={homeContent.latestUpdates} />
       </main>
       <SiteFooter />
     </>

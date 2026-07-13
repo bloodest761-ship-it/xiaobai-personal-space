@@ -22,10 +22,14 @@ type EntryListFilters = {
   type?: EntryType | "all";
   status?: EntryStatus | "all";
   deleted?: "include" | "only" | "exclude";
+  limit?: number;
+  offset?: number;
 };
 
 const entryColumns =
   "id,title,slug,type,status,summary,content_json,content_text,cover_path,tags,featured,featured_order,metadata,created_by,created_at,updated_at,published_at,deleted_at";
+const entryListColumns =
+  "id,title,slug,type,status,summary,cover_path,tags,featured,featured_order,created_by,created_at,updated_at,published_at,deleted_at";
 
 const defaultTitles: Record<EntryType, string> = {
   reflection: "未命名心得",
@@ -44,7 +48,7 @@ export async function getAdminEntries(
   }
 
   const supabase = await createSupabaseServerClient();
-  let query = supabase.from("entries").select(entryColumns);
+  let query = supabase.from("entries").select(entryListColumns);
 
   if (filters.deleted === "only") {
     query = query.not("deleted_at", "is", null);
@@ -65,13 +69,15 @@ export async function getAdminEntries(
     query = query.or(`title.ilike.${pattern},summary.ilike.${pattern},content_text.ilike.${pattern}`);
   }
 
-  const { data, error } = await query.order("updated_at", { ascending: false });
+  const limit = Math.min(Math.max(filters.limit ?? 50, 1), 100);
+  const offset = Math.max(filters.offset ?? 0, 0);
+  const { data, error } = await query.order("updated_at", { ascending: false }).range(offset, offset + limit - 1);
 
   if (error) {
     return { data: null, error: "后台内容暂时无法读取。" };
   }
 
-  return { data: data ?? [], error: null };
+  return { data: (data ?? []) as EntryRow[], error: null };
 }
 
 export async function getEntryById(id: string): Promise<DataResult<EntryRow>> {

@@ -15,7 +15,7 @@ type PageProps = {
 };
 
 export const dynamicParams = true;
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 const sectionLabels = {
   background: "项目背景",
