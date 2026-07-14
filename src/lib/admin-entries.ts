@@ -31,8 +31,10 @@ const entryColumns =
 const entryListColumns =
   "id,title,slug,type,status,summary,cover_path,tags,featured,featured_order,created_by,created_at,updated_at,published_at,deleted_at";
 
+export const DEFAULT_WRITING_DRAFT_TITLE = "未命名心得";
+
 const defaultTitles: Record<EntryType, string> = {
-  reflection: "未命名心得",
+  reflection: DEFAULT_WRITING_DRAFT_TITLE,
   essay: "未命名随笔",
   project: "未命名项目",
   understanding: "未命名理解",
@@ -138,6 +140,58 @@ export async function createEntry(input: NewEntryInput): Promise<DataResult<Entr
   return { data, error: null };
 }
 
+/**
+ * The one-click writing route reuses its unfinished default reflection draft.
+ * A visit never creates another row while that empty draft still exists.
+ */
+export async function getOrCreateWritingDraft(): Promise<DataResult<EntryRow>> {
+  const admin = await requireAdmin();
+
+  if (admin.error || !admin.data) {
+    return { data: null, error: admin.error ?? "只有管理员可以开始写作。" };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data: reusableDrafts, error: reusableDraftError } = await supabase
+    .from("entries")
+    .select(entryColumns)
+    .eq("created_by", admin.data.userId)
+    .eq("type", "reflection")
+    .eq("status", "draft")
+    .eq("title", DEFAULT_WRITING_DRAFT_TITLE)
+    .eq("content_text", "")
+    .is("summary", null)
+    .is("cover_path", null)
+    .eq("featured", false)
+    .is("featured_order", null)
+    .is("deleted_at", null)
+    .order("updated_at", { ascending: false })
+    .limit(10);
+
+  if (reusableDraftError) {
+    return { data: null, error: "无法检查可继续编辑的草稿。" };
+  }
+
+  const reusableDraft = (reusableDrafts ?? []).find(isEmptyWritingDraft);
+
+  if (reusableDraft) {
+    return { data: reusableDraft, error: null };
+  }
+
+  return createEntry({ type: "reflection" });
+}
+
+function isEmptyWritingDraft(entry: EntryRow) {
+  if (entry.tags.length > 0 || !isEmptyEditorDocument(entry.content_json)) return false;
+  return true;
+}
+
+function isEmptyEditorDocument(value: Json) {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const document = value as Record<string, Json | undefined>;
+  return document.type === "doc" && Array.isArray(document.content) && document.content.length === 0;
+}
+
 export async function updateEntry(input: EntryFormInput): Promise<DataResult<EntryRow>> {
   const admin = await requireAdmin();
 
@@ -186,6 +240,7 @@ export async function updateEditorEntry(input: EditorEntryInput): Promise<DataRe
       slug: input.slug,
       type: input.type,
       summary: input.summary || null,
+      cover_path: input.cover_path,
       content_json: input.content_json as Json,
       content_text: input.content_text ?? "",
       tags: input.tags,

@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { hasPublicSupabaseEnv } from "@/lib/env";
+import { getSafeStudioRedirect } from "@/lib/auth/redirect";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { loginInputSchema } from "@/lib/validation/entry";
 
@@ -67,7 +68,7 @@ export async function loginAction(
     };
   }
 
-  redirect("/studio");
+  redirect(getSafeStudioRedirect(formData.get("next")));
 }
 
 export async function logoutAction() {

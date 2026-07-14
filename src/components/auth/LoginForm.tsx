@@ -7,11 +7,12 @@ const initialState: LoginActionState = {
   message: null,
 };
 
-export function LoginForm() {
+export function LoginForm({ nextPath }: { nextPath: string }) {
   const [state, formAction, pending] = useActionState(loginAction, initialState);
 
   return (
     <form action={formAction} className="mt-8 space-y-5">
+      <input type="hidden" name="next" value={nextPath} />
       <div>
         <label className="block text-sm font-medium text-primary" htmlFor="email">
           邮箱

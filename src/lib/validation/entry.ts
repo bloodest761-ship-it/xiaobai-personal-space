@@ -77,6 +77,7 @@ export const entryFormInputSchema = z.object({
 
 export const editorEntryInputSchema = entryFormInputSchema.extend({
   content_json: z.unknown(),
+  cover_path: z.string().trim().max(2048, "封面地址不能超过 2048 个字符。").nullable(),
   expected_updated_at: z.string().trim().min(1).refine((value) => !Number.isNaN(Date.parse(value)), "保存版本无效。"),
 });
 

@@ -5,6 +5,7 @@ import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { Container } from "@/components/ui/Container";
 import { getCurrentAdminState } from "@/lib/auth/admin";
+import { getSafeStudioRedirect } from "@/lib/auth/redirect";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,7 @@ export const metadata: Metadata = {
 type LoginPageProps = {
   searchParams: Promise<{
     reason?: string;
+    next?: string;
   }>;
 };
 
@@ -30,10 +32,11 @@ const reasonMessages: Record<string, string> = {
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const adminState = await getCurrentAdminState();
-  const { reason } = await searchParams;
+  const { reason, next } = await searchParams;
+  const nextPath = getSafeStudioRedirect(next);
 
   if (adminState.status === "admin") {
-    redirect("/studio");
+    redirect(nextPath);
   }
 
   return (
@@ -52,7 +55,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
                 {reasonMessages[reason] ?? "请先登录管理员账号。"}
               </p>
             ) : null}
-            <LoginForm />
+            <LoginForm nextPath={nextPath} />
           </div>
         </Container>
       </main>

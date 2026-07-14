@@ -37,10 +37,18 @@ npm install
 npm run dev
 ```
 
-默认预览地址：
+## 一键开始写作（Windows）
+
+1. 第一次使用时，双击项目根目录的 `install-shortcut.bat`。
+2. 桌面会出现名为“**开始写作**”的快捷方式。
+3. 以后双击该快捷方式会复用已运行的本站开发服务器，或在未运行时启动它，并自动打开写作页。
+4. 默认写作地址是 `http://localhost:3000/studio/new`；未登录时，登录成功后会回到该页面。
+5. 启动后的终端窗口不能关闭，关闭它会停止本地网站。
+
+默认写作地址：
 
 ```text
-http://localhost:3000
+http://localhost:3000/studio/new
 ```
 
 ## 代码检查
