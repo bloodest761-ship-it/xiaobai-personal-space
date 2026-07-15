@@ -8,6 +8,7 @@ import {
 } from "@/actions/entries";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
+import { DraftBackupCleanup } from "@/components/editor/DraftBackupCleanup";
 import { StudioNav } from "@/components/studio/StudioNav";
 import { Button } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Container";
@@ -33,6 +34,7 @@ type PageProps = {
     status?: string;
     error?: string;
     deleted?: string;
+    draft?: string;
   }>;
 };
 
@@ -54,6 +56,7 @@ export default async function EntriesPage({ searchParams }: PageProps) {
       <SiteHeader />
       <main className="bg-page">
         <Container className="py-12 sm:py-16">
+          <DraftBackupCleanup entryId={params.deleted ? params.draft : undefined} />
           <StudioNav />
           <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
             <div>

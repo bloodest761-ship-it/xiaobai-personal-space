@@ -39,6 +39,7 @@ function selectedImageFrom(editor: Editor): SelectedImage | null {
 
 export function RichTextEditor({ entryId, content, resetVersion, isProject, onChange, onEditorReady }: RichTextEditorProps) {
   const hasUserInteractionRef = useRef(false);
+  const isComposingRef = useRef(false);
   const imageUploader = useRef<ImageUploaderHandle>(null);
   const imageInsertionPosition = useRef<number | null>(null);
   const [selectedImage, setSelectedImage] = useState<SelectedImage | null>(null);
@@ -61,14 +62,21 @@ export function RichTextEditor({ entryId, content, resetVersion, isProject, onCh
         "data-placeholder": "从这里开始记录你的想法……",
       },
       handleDOMEvents: {
-        beforeinput: () => { markUserInteraction(); return false; },
-        input: () => { markUserInteraction(); return false; },
+        beforeinput: () => { if (!isComposingRef.current) markUserInteraction(); return false; },
+        input: () => { if (!isComposingRef.current) markUserInteraction(); return false; },
         paste: () => { markUserInteraction(); return false; },
-        compositionend: () => { markUserInteraction(); return false; },
+        compositionstart: () => { isComposingRef.current = true; return false; },
+        compositionend: (view) => {
+          isComposingRef.current = false;
+          markUserInteraction();
+          const json = view.state.doc.toJSON() as EditorDocument;
+          onChange(json, editorDocumentToText(json));
+          return false;
+        },
       },
     },
     onUpdate({ editor: activeEditor }) {
-      if (!hasUserInteractionRef.current) return;
+      if (!hasUserInteractionRef.current || isComposingRef.current) return;
       const json = activeEditor.getJSON() as EditorDocument;
       onChange(json, editorDocumentToText(json));
     },

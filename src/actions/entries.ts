@@ -106,7 +106,7 @@ export async function softDeleteEntryAction(formData: FormData) {
   }
 
   revalidateEntry(result.data, existing.data.slug);
-  redirect("/studio/entries?deleted=1");
+  redirect(`/studio/entries?deleted=1&draft=${encodeURIComponent(id)}`);
 }
 
 export async function restoreEntryAction(formData: FormData) {
