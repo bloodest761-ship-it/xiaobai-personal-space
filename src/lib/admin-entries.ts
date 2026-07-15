@@ -378,6 +378,18 @@ function isPublishable(entry: EntryRow) {
 async function requireAdmin(): Promise<DataResult<{ userId: string }>> {
   const adminState = await getCurrentAdminState();
 
+  if (adminState.status === "unauthenticated") {
+    return { data: null, error: "登录已失效，请重新登录后再试。" };
+  }
+
+  if (adminState.status === "not-admin") {
+    return { data: null, error: "你没有管理内容的权限。" };
+  }
+
+  if (adminState.status === "missing-env") {
+    return { data: null, error: "后台配置暂不可用，请稍后再试。" };
+  }
+
   if (adminState.status !== "admin") {
     return { data: null, error: "只有管理员可以操作后台内容。" };
   }
