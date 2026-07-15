@@ -1,7 +1,7 @@
 "use server";
 
-import { revalidatePath, revalidateTag } from "next/cache";
 import { getEntryById, publishEntry, updateEditorEntry, type EntryRow } from "@/lib/admin-entries";
+import { revalidateEntryViews } from "@/lib/entry-revalidation";
 import { editorEntryInputSchema } from "@/lib/validation/entry";
 import type { Json } from "@/types/database";
 
@@ -26,7 +26,7 @@ export async function saveEditorEntryAction(payload: unknown): Promise<EditorAct
   });
   if (result.error || !result.data) return { ok: false, error: result.error ?? "保存失败。" };
 
-  revalidateEntry(result.data, existing.data.slug);
+  revalidateEntryViews(result.data, existing.data.slug);
   return { ok: true, updatedAt: result.data.updated_at, status: result.data.status };
 }
 
@@ -68,23 +68,6 @@ export async function publishEditorEntryAction(payload: unknown): Promise<Editor
   const result = await publishEntry(parsed.data.id);
   if (result.error || !result.data) return { ok: false, error: result.error ?? "发布失败。" };
 
-  revalidateEntry(result.data, parsed.data.slug);
+  revalidateEntryViews(result.data, parsed.data.slug);
   return { ok: true, updatedAt: result.data.updated_at, status: result.data.status };
-}
-
-function revalidateEntry(entry: EntryRow, previousSlug?: string) {
-  revalidateTag("public-content", "max");
-  revalidateTag("home", "max");
-  revalidateTag(`list:${entry.type}`, "max");
-  revalidateTag(`entry:${entry.slug}`, "max");
-  if (previousSlug && previousSlug !== entry.slug) revalidateTag(`entry:${previousSlug}`, "max");
-  revalidatePath("/studio");
-  revalidatePath("/studio/entries");
-  revalidatePath("/studio/trash");
-  revalidatePath("/");
-  revalidatePath("/space");
-  revalidatePath(`/space/${entry.type}`);
-  const currentPath = entry.type === "project" ? `/project/${entry.slug}` : `/entry/${entry.slug}`;
-  revalidatePath(currentPath);
-  if (previousSlug && previousSlug !== entry.slug) revalidatePath(entry.type === "project" ? `/project/${previousSlug}` : `/entry/${previousSlug}`);
 }

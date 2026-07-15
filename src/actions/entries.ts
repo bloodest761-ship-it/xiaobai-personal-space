@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import {
   archiveEntry,
@@ -15,6 +14,7 @@ import {
 } from "@/lib/admin-entries";
 import { entryFormInputSchema, entryIdSchema, newEntryInputSchema } from "@/lib/validation/entry";
 import type { EntryRow } from "@/lib/admin-entries";
+import { revalidateEntryViews, revalidateStudioViews } from "@/lib/entry-revalidation";
 
 export async function createEntryAction(formData: FormData) {
   const parsed = newEntryInputSchema.safeParse({
@@ -31,7 +31,7 @@ export async function createEntryAction(formData: FormData) {
     redirect(`/studio/new?error=${encodeURIComponent(result.error ?? "无法创建内容。")}`);
   }
 
-  revalidateStudio();
+  revalidateStudioViews();
   redirect(`/studio/edit/${result.data.id}?created=1`);
 }
 
@@ -177,28 +177,5 @@ function nullableNumber(value: FormDataEntryValue | null) {
 }
 
 function revalidateEntry(entry: EntryRow, previousSlug?: string) {
-  revalidateTag("public-content", "max");
-  revalidateTag("home", "max");
-  revalidateTag(`list:${entry.type}`, "max");
-  revalidateTag(`entry:${entry.slug}`, "max");
-  if (previousSlug && previousSlug !== entry.slug) {
-    revalidateTag(`entry:${previousSlug}`, "max");
-  }
-  revalidateStudio();
-  revalidatePath("/");
-  revalidatePath("/space");
-  revalidatePath(`/space/${entry.type}`);
-
-  const currentPath = entry.type === "project" ? `/project/${entry.slug}` : `/entry/${entry.slug}`;
-  revalidatePath(currentPath);
-
-  if (previousSlug && previousSlug !== entry.slug) {
-    revalidatePath(entry.type === "project" ? `/project/${previousSlug}` : `/entry/${previousSlug}`);
-  }
-}
-
-function revalidateStudio() {
-  revalidatePath("/studio");
-  revalidatePath("/studio/entries");
-  revalidatePath("/studio/trash");
+  revalidateEntryViews(entry, previousSlug);
 }

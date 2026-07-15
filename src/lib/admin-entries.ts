@@ -261,18 +261,27 @@ export async function updateEditorEntry(input: EditorEntryInput): Promise<DataRe
 }
 
 export async function publishEntry(id: string): Promise<DataResult<EntryRow>> {
+  const existing = await getEntryById(id);
+  if (existing.error || !existing.data) return { data: null, error: existing.error ?? "没有找到这条内容。" };
+  if (existing.data.status !== "draft") return { data: null, error: "只有草稿可以发布，请刷新列表后重试。" };
+  if (!isPublishable(existing.data)) return { data: null, error: "请先填写标题和正文，再发布内容。" };
   return updateEntryStatus(id, {
     status: "published",
     publishedAt: "first-publish",
     deletedAt: "keep",
+    expectedStatus: "draft",
   });
 }
 
 export async function unpublishEntry(id: string): Promise<DataResult<EntryRow>> {
+  const existing = await getEntryById(id);
+  if (existing.error || !existing.data) return { data: null, error: existing.error ?? "没有找到这条内容。" };
+  if (existing.data.status !== "published") return { data: null, error: "只有已发布内容可以撤回，请刷新列表后重试。" };
   return updateEntryStatus(id, {
     status: "draft",
     publishedAt: "keep",
     deletedAt: "keep",
+    expectedStatus: "published",
   });
 }
 
@@ -291,6 +300,27 @@ export async function softDeleteEntry(id: string): Promise<DataResult<EntryRow>>
   });
 }
 
+/** Permanently delete drafts only. Storage assets intentionally remain untouched. */
+export async function deleteDraftEntry(id: string): Promise<DataResult<EntryRow>> {
+  const existing = await getEntryById(id);
+  if (existing.error || !existing.data) return { data: null, error: existing.error ?? "内容已被删除或状态已改变，请刷新列表。" };
+  if (existing.data.status !== "draft" || existing.data.deleted_at) {
+    return { data: null, error: "已发布内容必须先撤回；只有草稿可以永久删除。" };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("entries")
+    .delete()
+    .eq("id", id)
+    .eq("status", "draft")
+    .is("deleted_at", null)
+    .select(entryColumns)
+    .maybeSingle();
+  if (error || !data) return { data: null, error: error ? mapDatabaseError(error) : "内容已被删除或状态已改变，请刷新列表。" };
+  return { data, error: null };
+}
+
 export async function restoreEntry(id: string): Promise<DataResult<EntryRow>> {
   return updateEntryStatus(id, {
     publishedAt: "keep",
@@ -304,6 +334,7 @@ async function updateEntryStatus(
     status?: EntryStatus;
     publishedAt: "keep" | "first-publish";
     deletedAt: "keep" | "now" | "clear";
+    expectedStatus?: EntryStatus;
   },
 ): Promise<DataResult<EntryRow>> {
   const existing = await getEntryById(id);
@@ -329,18 +360,19 @@ async function updateEntryStatus(
     patch.deleted_at = null;
   }
 
-  const { data, error } = await supabase
-    .from("entries")
-    .update(patch)
-    .eq("id", id)
-    .select(entryColumns)
-    .single();
+  let mutation = supabase.from("entries").update(patch).eq("id", id);
+  if (options.expectedStatus) mutation = mutation.eq("status", options.expectedStatus);
+  const { data, error } = await mutation.select(entryColumns).maybeSingle();
 
   if (error || !data) {
-    return { data: null, error: mapDatabaseError(error) };
+    return { data: null, error: error ? mapDatabaseError(error) : "内容状态已改变，请刷新列表后重试。" };
   }
 
   return { data, error: null };
+}
+
+function isPublishable(entry: EntryRow) {
+  return entry.title.trim().length > 0 && (entry.content_text?.trim().length ?? 0) > 0;
 }
 
 async function requireAdmin(): Promise<DataResult<{ userId: string }>> {

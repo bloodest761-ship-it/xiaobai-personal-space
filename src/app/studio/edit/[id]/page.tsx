@@ -16,10 +16,12 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-type PageProps = { params: Promise<{ id: string }> };
+type PageProps = { params: Promise<{ id: string }>; searchParams: Promise<{ status?: string }> };
 
-export default async function EditEntryPage({ params }: PageProps) {
+export default async function EditEntryPage({ params, searchParams }: PageProps) {
   const { id } = await params;
+  const { status } = await searchParams;
+  const returnHref = status === "draft" || status === "published" ? `/studio/entries?status=${status}` : "/studio/entries";
   const result = await getEntryById(id);
   if (result.error || !result.data) notFound();
   const entry = result.data;
@@ -36,9 +38,9 @@ export default async function EditEntryPage({ params }: PageProps) {
               <h1 className="mt-3 text-3xl font-semibold text-primary">编辑内容</h1>
               <p className="mt-3 text-base leading-8 text-secondary">{entryTypeLabels[entry.type]} · {entryStatusLabels[entry.status]}{entry.deleted_at ? " · 已在回收站" : ""}</p>
             </div>
-            <Link href="/studio/entries" className="rounded-full border border-border bg-surface px-5 py-2 text-sm font-medium text-primary">返回列表</Link>
+            <Link href={returnHref} className="rounded-full border border-border bg-surface px-5 py-2 text-sm font-medium text-primary">返回列表</Link>
           </div>
-          <EntryEditorForm entry={entry} />
+          <EntryEditorForm entry={entry} studioReturnHref={returnHref} />
         </Container>
       </main>
       <SiteFooter />

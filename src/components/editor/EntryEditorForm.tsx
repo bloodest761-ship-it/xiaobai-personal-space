@@ -2,15 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Editor } from "@tiptap/core";
-import { archiveEntryAction, softDeleteEntryAction, unpublishEntryAction } from "@/actions/entries";
 import { publishEditorEntryAction, saveEditorEntryAction } from "@/actions/editor";
 import { RichTextEditor } from "@/components/editor/RichTextEditor";
+import { EntryLifecycleActions } from "@/components/studio/EntryList";
 import { editorDocumentToText, emptyEditorDocument, isEditorDocument, type EditorDocument } from "@/components/editor/types";
 import { entryTypeLabels, projectStatusLabels } from "@/lib/entry-labels";
 import type { EntryRow } from "@/lib/admin-entries";
 import type { Json } from "@/types/database";
 
-type EntryEditorFormProps = { entry: EntryRow; autoFocusTitle?: boolean };
+type EntryEditorFormProps = { entry: EntryRow; autoFocusTitle?: boolean; studioReturnHref?: string };
 type SaveState = "unsaved" | "saving" | "saved" | "failed" | "offline" | "recovering";
 type SaveFailureKind = "network" | "login" | "permission" | "server" | "unknown";
 type Metadata = {
@@ -133,7 +133,7 @@ function classifySaveFailure(error: unknown): { kind: SaveFailureKind; message: 
   return { kind: "unknown", message: "保存出现未知问题，内容已保留在本地备份。" };
 }
 
-export function EntryEditorForm({ entry, autoFocusTitle = false }: EntryEditorFormProps) {
+export function EntryEditorForm({ entry, autoFocusTitle = false, studioReturnHref = "/studio/entries" }: EntryEditorFormProps) {
   const initialContent = isEditorDocument(entry.content_json) ? entry.content_json : emptyEditorDocument;
   const initialContentText = entry.content_text ?? editorDocumentToText(initialContent);
   const [title, setTitle] = useState(entry.title);
@@ -155,6 +155,7 @@ export function EntryEditorForm({ entry, autoFocusTitle = false }: EntryEditorFo
   const [otherTabWarning, setOtherTabWarning] = useState(false);
   const [recoveryVersion, setRecoveryVersion] = useState(0);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [entryStatus, setEntryStatus] = useState<EntryRow["status"]>(entry.status);
   const titleInput = useRef<HTMLInputElement>(null);
   const focusEditorAfterReady = useRef(false);
   const editorInstance = useRef<Editor | null>(null);
@@ -169,6 +170,7 @@ export function EntryEditorForm({ entry, autoFocusTitle = false }: EntryEditorFo
   const statusRef = useRef<EntryRow["status"]>(entry.status);
   const serverUpdatedAt = useRef(entry.updated_at);
   const draftKey = `xiaobai-draft:${entry.id}`;
+
   const snapshotRef = useRef<EditableSnapshot>({
     id: entry.id,
     title: entry.title,
@@ -426,7 +428,7 @@ export function EntryEditorForm({ entry, autoFocusTitle = false }: EntryEditorFo
   }
 
   async function publish() {
-    if (isPublishing) return;
+    if (isPublishing || entryStatus !== "draft") return;
     clearDebounce();
     setIsPublishing(true);
     const saved = await saveLatest(true);
@@ -462,6 +464,7 @@ export function EntryEditorForm({ entry, autoFocusTitle = false }: EntryEditorFo
 
     serverUpdatedAt.current = result.updatedAt;
     statusRef.current = result.status ?? "published";
+    setEntryStatus(result.status ?? "published");
     snapshotRef.current = { ...snapshotRef.current, expected_updated_at: result.updatedAt };
     setLastSavedAt(result.updatedAt);
     dirtyRef.current = false;
@@ -547,7 +550,9 @@ export function EntryEditorForm({ entry, autoFocusTitle = false }: EntryEditorFo
 
           <div className="flex flex-wrap items-center gap-3 border-t border-border pt-5">
             <button type="button" onClick={() => void saveLatest(true)} disabled={busy} className="min-h-11 rounded-full border border-border bg-page px-5 py-2 text-sm font-medium text-primary disabled:opacity-60">保存草稿</button>
-            <button type="button" onClick={() => void publish()} disabled={busy} className="min-h-11 rounded-full border border-accent bg-accent px-5 py-2 text-sm font-medium text-white disabled:opacity-60">发布</button>
+            {entryStatus === "draft" ? (
+            <button type="button" onClick={() => void publish()} disabled={busy} className="min-h-11 rounded-full border border-accent bg-accent px-5 py-2 text-sm font-medium text-white disabled:opacity-60">{isPublishing ? "正在发布…" : "发布（公开）"}</button>
+            ) : null}
           </div>
 
           <details className="rounded-xl border border-border bg-page p-4" open={type === "project"}>
@@ -562,12 +567,10 @@ export function EntryEditorForm({ entry, autoFocusTitle = false }: EntryEditorFo
                 <Field label="精选顺序"><input value={featuredOrder} type="number" onChange={(event) => update(setFeaturedOrder, "featured_order", event.target.value)} className="field-input" /></Field>
               </div>
               {type === "project" ? <ProjectFields metadata={metadata} onChange={(value) => update(setMetadata, "metadata", value)} /> : null}
-              <div className="grid gap-3 border-t border-border pt-5 sm:grid-cols-3">
-                <LifecycleForm id={entry.id} action={unpublishEntryAction} label="撤回为草稿" />
-                <LifecycleForm id={entry.id} action={archiveEntryAction} label="归档" />
-                <LifecycleForm id={entry.id} action={softDeleteEntryAction} label="删除到回收站" danger />
-              </div>
               <p className="text-xs text-muted">创建于 {formatDate(entry.created_at)}；最近服务器保存于 {formatDate(lastSavedAt)}。</p>
+            </div>
+            <div className="border-t border-border pt-5">
+                <EntryLifecycleActions entry={{ id: entry.id, title, slug, type, status: entryStatus, featured, created_at: entry.created_at, updated_at: lastSavedAt, published_at: entry.published_at }} afterDeleteHref={studioReturnHref} onStatusChanged={(status) => { statusRef.current = status; setEntryStatus(status); }} />
             </div>
           </details>
         </div>
@@ -591,10 +594,6 @@ function SaveIndicator({ state, lastSavedAt }: { state: SaveState; lastSavedAt: 
   };
   const current = details[state];
   return <span role="status" className={`text-sm ${current.className}`}><span aria-hidden="true">{current.icon} </span>{current.label}</span>;
-}
-
-function LifecycleForm({ id, action, label, danger = false }: { id: string; action: (formData: FormData) => Promise<void>; label: string; danger?: boolean }) {
-  return <form action={action}><input type="hidden" name="id" value={id} /><button type="submit" className={danger ? "min-h-11 w-full rounded-full border border-red-200 bg-red-50 px-5 py-2 text-sm font-medium text-red-700" : "min-h-11 w-full rounded-full border border-border bg-surface px-5 py-2 text-sm font-medium text-primary"}>{label}</button></form>;
 }
 
 function TagInput({ tags, onChange }: { tags: string[]; onChange: (tags: string[]) => void }) {
