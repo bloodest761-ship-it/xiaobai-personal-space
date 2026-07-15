@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { forwardRef, useImperativeHandle, useRef, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { EditorImage } from "@/components/editor/types";
 
@@ -12,12 +12,22 @@ type ImageUploaderProps = {
   onUploaded: (image: EditorImage) => void;
 };
 
-export function ImageUploader({ entryId, onUploaded }: ImageUploaderProps) {
+export type ImageUploaderHandle = {
+  open: () => void;
+};
+
+export const ImageUploader = forwardRef<ImageUploaderHandle, ImageUploaderProps>(function ImageUploader({ entryId, onUploaded }, ref) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [alt, setAlt] = useState("");
   const [caption, setCaption] = useState("");
   const [status, setStatus] = useState<"idle" | "uploading" | "success" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
+
+  useImperativeHandle(ref, () => ({
+    open() {
+      inputRef.current?.click();
+    },
+  }));
 
   async function upload(file?: File) {
     if (!file) return;
@@ -94,4 +104,4 @@ export function ImageUploader({ entryId, onUploaded }: ImageUploaderProps) {
       </div>
     </div>
   );
-}
+});

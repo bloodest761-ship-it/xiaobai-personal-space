@@ -223,7 +223,8 @@ export function EntryEditorForm({ entry, autoFocusTitle = false }: EntryEditorFo
                 required
                 maxLength={120}
                 autoFocus={autoFocusTitle}
-                className="field-input"
+                placeholder="给这篇内容起个标题"
+                className="min-h-14 w-full border-0 border-b border-border bg-transparent px-0 py-2 text-2xl font-semibold tracking-tight text-primary outline-none transition placeholder:text-muted focus:border-accent sm:text-3xl"
               />
             </Field>
             <Field label="内容类型">
