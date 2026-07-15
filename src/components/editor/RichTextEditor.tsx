@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Editor } from "@tiptap/core";
+import { NodeSelection } from "@tiptap/pm/state";
 import Link from "@tiptap/extension-link";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { EditorToolbar } from "@/components/editor/EditorToolbar";
 import { Callout, ImageFigure, InsightShift, ProjectOverview, TrailingParagraph } from "@/components/editor/extensions";
 import { ImageUploader, type ImageUploaderHandle } from "@/components/editor/ImageUploader";
+import { ImageSettings } from "@/components/editor/ImageSettings";
 import { editorDocumentToText, emptyEditorDocument, isEditorDocument, type EditorDocument, type EditorImage } from "@/components/editor/types";
 
 type RichTextEditorProps = {
@@ -19,9 +21,27 @@ type RichTextEditorProps = {
   onEditorReady: (editor: Editor) => void;
 };
 
+type SelectedImage = {
+  position: number;
+  alt: string;
+  caption: string;
+};
+
+function selectedImageFrom(editor: Editor): SelectedImage | null {
+  const { selection } = editor.state;
+  if (!(selection instanceof NodeSelection) || selection.node.type.name !== "imageFigure") return null;
+  return {
+    position: selection.from,
+    alt: String(selection.node.attrs.alt ?? ""),
+    caption: String(selection.node.attrs.caption ?? ""),
+  };
+}
+
 export function RichTextEditor({ entryId, content, resetVersion, isProject, onChange, onEditorReady }: RichTextEditorProps) {
   const hasUserInteractionRef = useRef(false);
   const imageUploader = useRef<ImageUploaderHandle>(null);
+  const imageInsertionPosition = useRef<number | null>(null);
+  const [selectedImage, setSelectedImage] = useState<SelectedImage | null>(null);
   const markUserInteraction = () => { hasUserInteractionRef.current = true; };
   const editor = useEditor({
     immediatelyRender: false,
@@ -62,6 +82,18 @@ export function RichTextEditor({ entryId, content, resetVersion, isProject, onCh
   useEffect(() => {
     if (editor) onEditorReady(editor);
   }, [editor, onEditorReady]);
+
+  useEffect(() => {
+    if (!editor) return;
+    const syncSelectedImage = () => setSelectedImage(selectedImageFrom(editor));
+    syncSelectedImage();
+    editor.on("selectionUpdate", syncSelectedImage);
+    editor.on("update", syncSelectedImage);
+    return () => {
+      editor.off("selectionUpdate", syncSelectedImage);
+      editor.off("update", syncSelectedImage);
+    };
+  }, [editor]);
 
   if (!editor) {
     return <div className="min-h-80 rounded-xl border border-border bg-page p-5 text-sm text-muted">正在加载编辑器…</div>;
@@ -109,7 +141,29 @@ export function RichTextEditor({ entryId, content, resetVersion, isProject, onCh
 
   function insertImage(image: EditorImage) {
     markUserInteraction();
-    activeEditor.chain().focus().insertContent({ type: "imageFigure", attrs: image }).run();
+    const chain = activeEditor.chain();
+    if (imageInsertionPosition.current !== null) {
+      chain.focus().setTextSelection(imageInsertionPosition.current);
+    }
+    else chain.focus("end");
+    chain.insertContent({ type: "imageFigure", attrs: image }).run();
+    imageInsertionPosition.current = null;
+  }
+
+  function prepareImageInsert() {
+    imageInsertionPosition.current = activeEditor.isFocused ? activeEditor.state.selection.from : null;
+  }
+
+  function updateSelectedImage(attributes: Partial<Pick<EditorImage, "alt" | "caption">>) {
+    if (!selectedImage) return;
+    markUserInteraction();
+    activeEditor.chain().setNodeSelection(selectedImage.position).updateAttributes("imageFigure", attributes).run();
+  }
+
+  function removeSelectedImage() {
+    if (!selectedImage) return;
+    markUserInteraction();
+    activeEditor.chain().setNodeSelection(selectedImage.position).deleteSelection().focus().run();
   }
 
   return (
@@ -124,7 +178,10 @@ export function RichTextEditor({ entryId, content, resetVersion, isProject, onCh
         onInsight={addInsight}
         onProjectOverview={addProjectOverview}
       />
-      <div className="editor-supporting-controls"><ImageUploader ref={imageUploader} entryId={entryId} onUploaded={insertImage} /></div>
+      <div className="editor-supporting-controls grid gap-3">
+        <ImageUploader ref={imageUploader} entryId={entryId} onUploaded={insertImage} onBeforeChoose={prepareImageInsert} />
+        {selectedImage ? <ImageSettings alt={selectedImage.alt} caption={selectedImage.caption} onAltChange={(alt) => updateSelectedImage({ alt })} onCaptionChange={(caption) => updateSelectedImage({ caption })} onRemove={removeSelectedImage} /> : null}
+      </div>
       <EditorContent editor={editor} />
       <p className="text-xs leading-5 text-muted">图片节点删除时只会从文章 JSON 移除，不会自动删除 Storage 原文件。</p>
     </div>
